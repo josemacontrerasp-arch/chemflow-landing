@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChemFlow — Hybrid AI-Assisted Process Design</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <style>
+    /* ── tokens ───────────────────────────────────────────────── */
+    :root {
+      --bg:      #f7f7f9;
+      --panel:   #ffffff;
+      --border:  #e3e5ea;
+      --text:    #1d2233;
+      --muted:   #6b7280;
+      --accent:  #2a5ae8;
+      --accent2: #1e48c6;
+      --mono:    "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+      --sans:    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+      /* node palette – matches UnitNode.jsx */
+      --c-feed:     #4b9cd3;
+      --c-product:  #3aa675;
+      --c-mixer:    #a06cd5;
+      --c-heater:   #e76f51;
+      --c-cooler:   #2a9d8f;
+      --c-reactor:  #d62828;
+      --c-flash:    #8d99ae;
+      --c-recycle:  #6c757d;
+      --c-comp:     #e9c46a;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── layout helpers ───────────────────────────────────────── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+    .mono { font-family: var(--mono); }
+
+    /* ── nav ──────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      gap: 24px;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .nav-logo {
+      width: 28px;
+      height: 28px;
+    }
+    .nav-wordmark {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .nav-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      letter-spacing: 0.02em;
+    }
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 7px 16px;
+      border-radius: 6px;
+      font-size: 13px !important;
+      font-weight: 500;
+      transition: background 0.15s !important;
+    }
+    .nav-cta:hover { background: var(--accent2) !important; color: #fff !important; }
+
+    /* ── hero ─────────────────────────────────────────────────── */
+    #hero {
+      padding: 96px 0 72px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.45;
+      pointer-events: none;
+    }
+    .hero-grid-fade {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 60% at 50% 100%, var(--bg) 30%, transparent 100%);
+      pointer-events: none;
+    }
+    .hero-content {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 24px;
+      max-width: 680px;
+    }
+    .hero-eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .hero-eyebrow-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    h1 {
+      font-size: clamp(42px, 6vw, 72px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      color: var(--text);
+    }
+    h1 span {
+      color: var(--accent);
+    }
+    .hero-sub {
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.65;
+      max-width: 520px;
+      text-wrap: pretty;
+    }
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 7px;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+    .btn-primary svg { flex-shrink: 0; }
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .btn-ghost:hover { color: var(--text); }
+    .hero-note {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: #fffbef;
+      border: 1px solid #f0e0a0;
+      border-radius: 5px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      max-width: 480px;
+      line-height: 1.55;
+    }
+    .hero-note-icon { flex-shrink: 0; color: #b07d00; margin-top: 1px; }
+
+    /* ── section headers ─────────────────────────────────────── */
+    .section-header {
+      margin-bottom: 48px;
+    }
+    .section-eyebrow {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      color: var(--text);
+    }
+    .section-sub {
+      margin-top: 10px;
+      font-size: 15px;
+      color: var(--muted);
+      max-width: 540px;
+      text-wrap: pretty;
+    }
+
+    /* ── why chemflow ────────────────────────────────────────────── */
+    #why {
+      padding: 88px 0;
+      border-top: 1px solid var(--border);
+    }
+    .why-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 72px;
+      align-items: start;
+    }
+    .why-problem p, .why-solution p {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.75;
+      margin-top: 16px;
+      text-wrap: pretty;
+    }
+    .problem-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 28px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .problem-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 16px;
+      font-size: 13.5px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+      line-height: 1.4;
+    }
+    .problem-item:last-child { border-bottom: none; }
+    .problem-item em { font-style: normal; font-weight: 600; }
+    .problem-icon { flex-shrink: 0; display: flex; align-items: center; }
+    .solution-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 28px;
+    }
+    .solution-step {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 16px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .solution-step:last-child { border-bottom: none; }
+    .step-num {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      padding-top: 3px;
+      letter-spacing: 0.04em;
+    }
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+    .step-desc {
+      font-size: 13.5px;
+      color: var(--muted);
+      line-height: 1.65;
+      text-wrap: pretty;
+    }
+    @media (max-width: 900px) {
+      .why-layout { grid-template-columns: 1fr; gap: 48px; }
+    }
+
+    /* ── flowsheet demo section ───────────────────────────────── */
+    #demo {
+      padding: 88px 0;
+      border-top: 1px solid var(--border);
+    }
+    .demo-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.3fr;
+      gap: 56px;
+      align-items: center;
+    }
+    .demo-canvas {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+      position: relative;
+    }
+    .demo-canvas-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .canvas-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .canvas-dot.r { background: #ff5f57; }
+    .canvas-dot.y { background: #febc2e; }
+    .canvas-dot.g { background: #28c840; }
+    .canvas-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+    .demo-canvas svg {
+      display: block;
+      width: 100%;
+    }
+    .demo-info {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .demo-compounds {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .compound-chip {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      background: #eef2fb;
+      border: 1px solid #c7d3ee;
+      border-radius: 999px;
+      padding: 3px 10px;
+      color: var(--text);
+    }
+    .demo-kpis {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .kpi-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    .kpi-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .kpi-value {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .kpi-unit {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: 3px;
+      font-weight: 400;
+    }
+    .demo-description p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+      text-wrap: pretty;
+    }
+    .demo-description p + p {
+      margin-top: 10px;
+    }
+
+    /* ── features grid ────────────────────────────────────────── */
+    #features {
+      padding: 88px 0;
+      border-top: 1px solid var(--border);
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--border);
+    }
+    .feature-card {
+      background: var(--panel);
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .feature-card:nth-child(4),
+    .feature-card:nth-child(5) {
+      grid-column: span 1;
+    }
+    /* Make last row 2 cards centered — handled with wrapper */
+    .features-row2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px;
+      background: var(--border);
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .feature-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .feature-desc {
+      font-size: 13.5px;
+      color: var(--muted);
+      line-height: 1.65;
+      text-wrap: pretty;
+    }
+    .feature-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: auto;
+      padding-top: 6px;
+    }
+    .tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 7px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+
+    /* ── what works now ───────────────────────────────────────── */
+    #status {
+      padding: 88px 0;
+      border-top: 1px solid var(--border);
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+    }
+    .status-col h3 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 20px;
+      font-family: var(--mono);
+    }
+    .check-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .check-item:last-child { border-bottom: none; }
+    .check-icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      margin-top: 1px;
+    }
+    .check-icon.done { color: #3aa675; }
+    .check-icon.soon { color: var(--muted); }
+    .check-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── roadmap ──────────────────────────────────────────────── */
+    #roadmap {
+      padding: 88px 0;
+      border-top: 1px solid var(--border);
+    }
+    .roadmap-items {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .roadmap-item {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 32px;
+      padding: 32px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: start;
+    }
+    .roadmap-item:last-child { border-bottom: none; }
+    .roadmap-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      padding-top: 3px;
+    }
+    .roadmap-badge {
+      display: inline-block;
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid;
+    }
+    .roadmap-badge.planned { color: var(--accent); border-color: #c7d3ee; background: #eef2fb; }
+    .roadmap-badge.research { color: #7b4fa8; border-color: #d9c7f0; background: #f3eeff; }
+    .roadmap-content h3 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .roadmap-content p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 520px;
+      text-wrap: pretty;
+    }
+    .roadmap-content ul {
+      margin-top: 12px;
+      padding-left: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .roadmap-content ul li {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .roadmap-content ul li::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    /* ── arch strip ───────────────────────────────────────────── */
+    #architecture {
+      padding: 72px 0;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .arch-layers {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--border);
+      margin-top: 48px;
+    }
+    .arch-layer {
+      background: var(--panel);
+      padding: 24px 20px;
+    }
+    .arch-num {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .arch-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .arch-items {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .arch-item {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .arch-item.active { color: var(--accent); }
+
+    /* ── stack ────────────────────────────────────────────────── */
+    .stack-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 32px;
+    }
+    .stack-chip {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 10px;
+      color: var(--muted);
+    }
+    .stack-chip.active {
+      background: #eef2fb;
+      border-color: #c7d3ee;
+      color: var(--text);
+    }
+
+    /* ── footer ───────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+      background: var(--panel);
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .footer-note {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .footer-version {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .footer-link {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+    .footer-link:hover { color: var(--text); }
+
+    /* ── responsive ───────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .demo-layout { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      .status-grid { grid-template-columns: 1fr; }
+      .arch-layers { grid-template-columns: 1fr 1fr; }
+      .roadmap-item { grid-template-columns: 1fr; gap: 8px; }
+      .nav-links { display: none; }
+    }
+    @media (max-width: 600px) {
+      .container { padding: 0 20px; }
+      #hero { padding: 64px 0 48px; }
+      .arch-layers { grid-template-columns: 1fr; }
+      .demo-kpis { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ─────────────────────────────────────────────────────── -->
+<nav>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand">
+        <!-- inline logo mark -->
+        <svg class="nav-logo" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="28" height="28" rx="6" fill="#1d2233"/>
+          <rect x="5" y="10" width="7" height="8" rx="2" fill="#4b9cd3"/>
+          <rect x="16" y="10" width="7" height="8" rx="2" fill="#d62828"/>
+          <line x1="12" y1="14" x2="16" y2="14" stroke="#2a5ae8" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="14" cy="14" r="1.5" fill="#2a5ae8"/>
+          <line x1="5" y1="18" x2="5" y2="22" stroke="#3aa675" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="23" y1="18" x2="23" y2="22" stroke="#e76f51" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="nav-wordmark">ChemFlow</span>
+        <span class="nav-tag">v0.3</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#why">Why</a></li>
+        <li><a href="#demo">Demo</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#status">What Works</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
+        <li><a href="https://chemflow-87xq.onrender.com" target="_blank" rel="noopener" class="nav-cta">Open Demo →</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ────────────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="hero-grid-bg"></div>
+  <div class="hero-grid-fade"></div>
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-dot"></span>
+        Live demo — v0.3
+      </div>
+      <h1>Hybrid AI-assisted<br/><span>process design</span></h1>
+      <p class="hero-sub">
+        ChemFlow lets engineers and students build chemical flowsheets visually, validate process topology, run simplified engineering calculations, and explore surrogate-model optimization — all with an AI copilot that explains its reasoning.
+      </p>
+      <div class="hero-actions">
+        <a href="https://chemflow-87xq.onrender.com" target="_blank" rel="noopener" class="btn-primary">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 7h10M7 2l5 5-5 5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Open Live Demo
+        </a>
+        <a href="#demo" class="btn-ghost">
+          See the CO₂ → Methanol example
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M6 2v8M2 6l4 4 4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+      <div class="hero-note">
+        <span class="hero-note-icon">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.2"/>
+            <line x1="6.5" y1="5.5" x2="6.5" y2="9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <circle cx="6.5" cy="3.5" r="0.7" fill="currentColor"/>
+          </svg>
+        </span>
+        Hosted on Render Free Tier — the demo may take 20–30 seconds to wake up on the first visit. This is expected behaviour. Reload once if you see a timeout.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY CHEMFLOW ─────────────────────────────────────────────── -->
+<section id="why">
+  <div class="container">
+    <div class="why-layout">
+
+      <div class="why-problem">
+        <div class="section-eyebrow">The problem</div>
+        <h2>Rigorous simulators don't teach you anything</h2>
+        <p>
+          Tools like Aspen Plus or DWSIM are powerful. But they hand you a blank canvas, expect you to already know the process, and produce results without ever explaining <em>why</em> a unit operation belongs in the flowsheet, what assumptions are being made, or what happens if a stream is misconfigured.
+        </p>
+        <p>
+          For students and engineers learning process design for the first time, this is a wall. You can't run a simulation without already knowing what you're doing — and the tool won't tell you what you're missing.
+        </p>
+        <div class="problem-list">
+          <div class="problem-item">
+            <div class="problem-icon">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6" stroke="#c0392b" stroke-width="1.2"/>
+                <line x1="4.5" y1="4.5" x2="9.5" y2="9.5" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round"/>
+                <line x1="9.5" y1="4.5" x2="4.5" y2="9.5" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            No explanation of <em>why</em> a unit is needed
+          </div>
+          <div class="problem-item">
+            <div class="problem-icon">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6" stroke="#c0392b" stroke-width="1.2"/>
+                <line x1="4.5" y1="4.5" x2="9.5" y2="9.5" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round"/>
+                <line x1="9.5" y1="4.5" x2="4.5" y2="9.5" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            Hidden assumptions and opaque property methods
+          </div>
+          <div class="problem-item">
+            <div class="problem-icon">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6" stroke="#c0392b" stroke-width="1.2"/>
+                <line x1="4.5" y1="4.5" x2="9.5" y2="9.5" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round"/>
+                <line x1="9.5" y1="4.5" x2="4.5" y2="9.5" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            No guidance when a topology is incomplete or wrong
+          </div>
+          <div class="problem-item">
+            <div class="problem-icon">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6" stroke="#c0392b" stroke-width="1.2"/>
+                <line x1="4.5" y1="4.5" x2="9.5" y2="9.5" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round"/>
+                <line x1="9.5" y1="4.5" x2="4.5" y2="9.5" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            Optimization is a separate expert skill, not integrated
+          </div>
+        </div>
+      </div>
+
+      <div class="why-solution">
+        <div class="section-eyebrow">The ChemFlow approach</div>
+        <h2>Visualization + AI as a learning layer</h2>
+        <p>
+          ChemFlow is built around the idea that understanding a process and simulating it should happen at the same time. Every action surfaces an explanation.
+        </p>
+
+        <div class="solution-steps">
+          <div class="solution-step">
+            <div class="step-num">01</div>
+            <div class="step-body">
+              <div class="step-title">Draw the process visually</div>
+              <div class="step-desc">Place unit operations on a canvas, connect streams, and see the topology take shape. The graph is validated before any calculation runs — missing specs and structural errors are flagged immediately.</div>
+            </div>
+          </div>
+          <div class="solution-step">
+            <div class="step-num">02</div>
+            <div class="step-body">
+              <div class="step-title">Ask the AI copilot why</div>
+              <div class="step-desc">Click any unit and ask the LLM copilot to explain its role, what happens if it's removed, or why a warning was raised. Every answer includes the assumption made, the confidence level, and a recommended action.</div>
+            </div>
+          </div>
+          <div class="solution-step">
+            <div class="step-num">03</div>
+            <div class="step-body">
+              <div class="step-title">Run transparent calculations</div>
+              <div class="step-desc">The engineering engine shows exactly which model produced each result — simplified balance, Antoine flash, or surrogate prediction — and flags where a rigorous simulator would be needed for real decisions.</div>
+            </div>
+          </div>
+          <div class="solution-step">
+            <div class="step-num">04</div>
+            <div class="step-body">
+              <div class="step-title">Understand what drives the outcome</div>
+              <div class="step-desc">Surrogate optimization tells you not just the best operating point but which variables matter most and why — making the engineering logic visible rather than hiding it inside a black-box solver.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FLOWSHEET DEMO ───────────────────────────────────────────── -->
+<section id="demo">
+  <div class="container">
+    <div class="demo-layout">
+
+      <!-- canvas mockup -->
+      <div class="demo-canvas">
+        <div class="demo-canvas-header">
+          <span class="canvas-dot r"></span>
+          <span class="canvas-dot y"></span>
+          <span class="canvas-dot g"></span>
+          <span class="canvas-title">methanol_demo.json — flowsheet canvas</span>
+        </div>
+        <!-- CO2 → Methanol teaching flowsheet SVG -->
+        <svg viewBox="0 0 540 340" xmlns="http://www.w3.org/2000/svg" style="background:#f7f7f9;">
+          <!-- grid lines -->
+          <defs>
+            <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+              <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e3e5ea" stroke-width="0.5"/>
+            </pattern>
+            <marker id="arr" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#2a5ae8"/>
+            </marker>
+
+          </defs>
+          <rect width="540" height="340" fill="url(#grid)"/>
+
+          <!-- ── FEED nodes ─────────────────────────────────── -->
+          <!-- CO2 feed -->
+          <g transform="translate(18, 68)">
+            <rect width="72" height="38" rx="5" fill="white" stroke="#4b9cd3" stroke-width="1.5"/>
+            <rect width="72" height="13" rx="5" fill="#4b9cd3"/>
+            <rect y="8" width="72" height="5" fill="#4b9cd3"/>
+            <text x="36" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">FEED</text>
+            <text x="36" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">CO₂</text>
+          </g>
+          <!-- H2 feed -->
+          <g transform="translate(18, 120)">
+            <rect width="72" height="38" rx="5" fill="white" stroke="#4b9cd3" stroke-width="1.5"/>
+            <rect width="72" height="13" rx="5" fill="#4b9cd3"/>
+            <rect y="8" width="72" height="5" fill="#4b9cd3"/>
+            <text x="36" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">FEED</text>
+            <text x="36" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">H₂</text>
+          </g>
+
+          <!-- ── COMPRESSOR ──────────────────────────────────── -->
+          <g transform="translate(126, 82)">
+            <rect width="76" height="38" rx="5" fill="white" stroke="#e9c46a" stroke-width="1.5"/>
+            <rect width="76" height="13" rx="5" fill="#e9c46a"/>
+            <rect y="8" width="76" height="5" fill="#e9c46a"/>
+            <text x="38" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">COMPR</text>
+            <text x="38" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">K-101</text>
+          </g>
+
+          <!-- ── MIXER ──────────────────────────────────────── -->
+          <g transform="translate(238, 82)">
+            <rect width="72" height="38" rx="5" fill="white" stroke="#a06cd5" stroke-width="1.5"/>
+            <rect width="72" height="13" rx="5" fill="#a06cd5"/>
+            <rect y="8" width="72" height="5" fill="#a06cd5"/>
+            <text x="36" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">MIXER</text>
+            <text x="36" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">M-101</text>
+          </g>
+
+          <!-- ── HEATER ─────────────────────────────────────── -->
+          <g transform="translate(238, 160)">
+            <rect width="72" height="38" rx="5" fill="white" stroke="#e76f51" stroke-width="1.5"/>
+            <rect width="72" height="13" rx="5" fill="#e76f51"/>
+            <rect y="8" width="72" height="5" fill="#e76f51"/>
+            <text x="36" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">HEATER</text>
+            <text x="36" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">E-101</text>
+          </g>
+
+          <!-- ── REACTOR ─────────────────────────────────────── -->
+          <g transform="translate(348, 120)">
+            <rect width="80" height="38" rx="5" fill="white" stroke="#d62828" stroke-width="1.5"/>
+            <rect width="80" height="13" rx="5" fill="#d62828"/>
+            <rect y="8" width="80" height="5" fill="#d62828"/>
+            <text x="40" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">REACTOR</text>
+            <text x="40" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">R-101</text>
+          </g>
+
+          <!-- ── COOLER ─────────────────────────────────────── -->
+          <g transform="translate(348, 196)">
+            <rect width="80" height="38" rx="5" fill="white" stroke="#2a9d8f" stroke-width="1.5"/>
+            <rect width="80" height="13" rx="5" fill="#2a9d8f"/>
+            <rect y="8" width="80" height="5" fill="#2a9d8f"/>
+            <text x="40" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">COOLER</text>
+            <text x="40" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">E-102</text>
+          </g>
+
+          <!-- ── FLASH ──────────────────────────────────────── -->
+          <g transform="translate(348, 258)">
+            <rect width="80" height="38" rx="5" fill="white" stroke="#8d99ae" stroke-width="1.5"/>
+            <rect width="80" height="13" rx="5" fill="#8d99ae"/>
+            <rect y="8" width="80" height="5" fill="#8d99ae"/>
+            <text x="40" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">FLASH</text>
+            <text x="40" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">V-101</text>
+          </g>
+
+          <!-- ── PRODUCT ─────────────────────────────────────── -->
+          <!-- Methanol product -->
+          <g transform="translate(452, 258)">
+            <rect width="72" height="38" rx="5" fill="white" stroke="#3aa675" stroke-width="1.5"/>
+            <rect width="72" height="13" rx="5" fill="#3aa675"/>
+            <rect y="8" width="72" height="5" fill="#3aa675"/>
+            <text x="36" y="9" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="7" font-weight="700" fill="white" letter-spacing="0.05em">PRODUCT</text>
+            <text x="36" y="29" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#1d2233">CH₃OH</text>
+          </g>
+
+
+          <!-- ── STREAMS / ARROWS ────────────────────────────── -->
+          <!-- CO2 feed → compr -->
+          <line x1="90" y1="87" x2="125" y2="101" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <!-- H2 feed → mixer direct -->
+          <line x1="90" y1="139" x2="235" y2="104" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <!-- compr → mixer -->
+          <line x1="202" y1="101" x2="237" y2="101" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <!-- mixer → heater -->
+          <line x1="274" y1="120" x2="274" y2="159" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <!-- heater → reactor -->
+          <line x1="310" y1="179" x2="347" y2="145" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <!-- mixer → reactor (also) -->
+          <line x1="310" y1="101" x2="347" y2="139" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <!-- reactor → cooler -->
+          <line x1="388" y1="158" x2="388" y2="195" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <!-- cooler → flash -->
+          <line x1="388" y1="234" x2="388" y2="257" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <!-- flash → product -->
+          <line x1="428" y1="277" x2="451" y2="277" stroke="#2a5ae8" stroke-width="1.2" marker-end="url(#arr)"/>
+
+
+          <!-- stream labels -->
+          <text x="108" y="90" font-family="Segoe UI,sans-serif" font-size="8" fill="#6b7280">S1</text>
+          <text x="213" y="135" font-family="Segoe UI,sans-serif" font-size="8" fill="#6b7280">S2</text>
+          <text x="317" y="97" font-family="Segoe UI,sans-serif" font-size="8" fill="#6b7280">S3</text>
+          <text x="280" y="148" font-family="Segoe UI,sans-serif" font-size="8" fill="#6b7280">S4</text>
+          <text x="395" y="180" font-family="Segoe UI,sans-serif" font-size="8" fill="#6b7280">S5</text>
+          <text x="395" y="250" font-family="Segoe UI,sans-serif" font-size="8" fill="#6b7280">S6</text>
+          <text x="432" y="272" font-family="Segoe UI,sans-serif" font-size="8" fill="#6b7280">S7</text>
+
+        </svg>
+      </div>
+
+      <!-- demo info -->
+      <div class="demo-info">
+        <div>
+          <div class="section-eyebrow">Teaching example</div>
+          <h2>CO₂ to Methanol flowsheet</h2>
+          <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px;">
+            <span class="compound-chip">CO₂</span>
+            <span class="compound-chip">H₂</span>
+            <span class="compound-chip">CH₃OH</span>
+            <span class="compound-chip">H₂O</span>
+            <span class="compound-chip">CO</span>
+          </div>
+        </div>
+
+        <div class="demo-kpis">
+          <div class="kpi-card">
+            <div class="kpi-label">CH₃OH purity</div>
+            <div class="kpi-value">0.82<span class="kpi-unit">mol/mol</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">CO₂ conversion</div>
+            <div class="kpi-value">0.65<span class="kpi-unit">frac</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Unit ops</div>
+            <div class="kpi-value">10<span class="kpi-unit">types</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Tests passing</div>
+            <div class="kpi-value">40<span class="kpi-unit">+</span></div>
+          </div>
+        </div>
+
+        <div class="demo-description">
+          <p>
+            The included demo flowsheet models a simplified CO₂ hydrogenation pathway to methanol: feed compression, mixing, pre-heating, stoichiometric reaction, cooling, and flash separation.
+          </p>
+          <p>
+            It is intentionally simplified — ideal-mixture assumptions, stoichiometric conversion, and Antoine K-value flash — to serve as a transparent teaching case rather than a rigorous simulation. The AI copilot will tell you exactly which assumptions were applied and where more careful modelling would be needed.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ─────────────────────────────────────────────────── -->
+<section id="features">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-eyebrow">Capabilities</div>
+      <h2>Four connected pillars</h2>
+      <p class="section-sub">Each layer builds on the last — from visual design to AI-guided optimization.</p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:2px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--border);">
+
+      <!-- 1 -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#eaf3fb;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="1" y="5" width="6" height="10" rx="2" fill="#4b9cd3"/>
+            <rect x="13" y="5" width="6" height="10" rx="2" fill="#d62828"/>
+            <line x1="7" y1="10" x2="13" y2="10" stroke="#2a5ae8" stroke-width="1.5" marker-end="url(#arr2)"/>
+            <circle cx="10" cy="10" r="1.5" fill="#2a5ae8"/>
+          </svg>
+        </div>
+        <div class="feature-title">Visual Flowsheeting</div>
+        <div class="feature-desc">
+          Drag-and-drop unit operations onto a React Flow canvas. Connect streams, edit parameters in-panel, and load pre-built example flowsheets. The graph topology is validated before any calculation runs.
+        </div>
+        <div class="feature-tags">
+          <span class="tag">React Flow</span>
+          <span class="tag">JSON export</span>
+          <span class="tag">Graph validation</span>
+        </div>
+      </div>
+
+      <!-- 2 -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#e8f5f1;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="3" width="16" height="14" rx="2" fill="none" stroke="#2a9d8f" stroke-width="1.3"/>
+            <line x1="6" y1="8" x2="14" y2="8" stroke="#2a9d8f" stroke-width="1"/>
+            <line x1="6" y1="11" x2="11" y2="11" stroke="#2a9d8f" stroke-width="1"/>
+            <line x1="6" y1="14" x2="13" y2="14" stroke="#2a9d8f" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="feature-title">Engineering Checks</div>
+        <div class="feature-desc">
+          Structured mass balances, component-weighted C<sub>p</sub>, Antoine flash K-values, phase-change detection, and recycle convergence via successive substitution. Results surface as a stream table with named KPIs.
+        </div>
+        <div class="feature-tags">
+          <span class="tag">FastAPI</span>
+          <span class="tag">NumPy</span>
+          <span class="tag">Recycle convergence</span>
+        </div>
+      </div>
+
+      <!-- 3 -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#eef2fb;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="7" fill="none" stroke="#2a5ae8" stroke-width="1.3"/>
+            <path d="M7 10c0-1.7 1.3-3 3-3s3 1.3 3 3" stroke="#2a5ae8" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+            <circle cx="10" cy="13" r="1.2" fill="#2a5ae8"/>
+          </svg>
+        </div>
+        <div class="feature-title">AI Copilot</div>
+        <div class="feature-desc">
+          Every copilot card is generated by an LLM — explain unit roles, map solver warnings to recommended actions, flag structural heuristic violations. Reason, assumption, confidence, and recommended action are structured fields on every response, so the model's reasoning is always visible.
+        </div>
+        <div class="feature-tags">
+          <span class="tag">LLM-generated cards</span>
+          <span class="tag">Structured reasoning</span>
+          <span class="tag">Confidence scores</span>
+        </div>
+      </div>
+
+      <!-- row 2: 2 cards spanning full width -->
+      <!-- 4 -->
+      <div class="feature-card" style="grid-column: span 1;">
+        <div class="feature-icon" style="background:#fef9ec;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="12" width="3" height="6" rx="1" fill="#e9c46a"/>
+            <rect x="7" y="8" width="3" height="10" rx="1" fill="#e76f51"/>
+            <rect x="12" y="4" width="3" height="14" rx="1" fill="#d62828"/>
+            <line x1="2" y1="3" x2="17" y2="3" stroke="#6b7280" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="feature-title">Surrogate Optimization</div>
+        <div class="feature-desc">
+          Run parameter sweeps to build a run history, train a RandomForest surrogate per KPI, and optimize over reactor temperature, pressure, feed ratios, and split fractions without calling the full solver each time.
+        </div>
+        <div class="feature-tags">
+          <span class="tag">RandomForest</span>
+          <span class="tag">Sweep → train → optimize</span>
+          <span class="tag">JSONL run history</span>
+        </div>
+      </div>
+
+      <!-- 5 -->
+      <div class="feature-card" style="grid-column: span 2;">
+        <div class="feature-icon" style="background:#f4eeff;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <line x1="4" y1="16" x2="4" y2="4" stroke="#a06cd5" stroke-width="1.2" stroke-linecap="round"/>
+            <line x1="4" y1="16" x2="17" y2="16" stroke="#a06cd5" stroke-width="1.2" stroke-linecap="round"/>
+            <rect x="6" y="11" width="3" height="5" rx="0.5" fill="#a06cd5" opacity="0.4"/>
+            <rect x="11" y="7" width="3" height="9" rx="0.5" fill="#a06cd5"/>
+            <line x1="5.5" y1="8" x2="13.5" y2="5" stroke="#d62828" stroke-width="1" stroke-dasharray="2 1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="feature-title">Explainable Insights</div>
+        <div class="feature-desc">
+          Feature importance scores from each trained surrogate are returned alongside the optimization result. The copilot interprets which decision variables dominate purity, conversion, or duty — and why the recommended operating point is preferred over alternatives. No hidden decisions.
+        </div>
+        <div class="feature-tags">
+          <span class="tag">Feature importance</span>
+          <span class="tag">Plain-language summaries</span>
+          <span class="tag">No black-box outputs</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── WHAT WORKS NOW ───────────────────────────────────────────── -->
+<section id="status">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-eyebrow">Current status</div>
+      <h2>What works now</h2>
+      <p class="section-sub">ChemFlow v0.3 — 40+ backend tests passing.</p>
+    </div>
+
+    <div class="status-grid">
+
+      <div class="status-col">
+        <h3>Shipped</h3>
+        <div class="check-list">
+
+          <div class="check-item">
+            <svg class="check-icon done" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#e6f7ef" stroke="#3aa675" stroke-width="1.2"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#3aa675" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <div>Graph validation with structured issue codes</div>
+              <div class="check-sub">Errors and warnings surface before the solver runs</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon done" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#e6f7ef" stroke="#3aa675" stroke-width="1.2"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#3aa675" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <div>Feed, mixer, splitter, heater, cooler, pump, compressor, stoichiometric reactor, flash, recycle</div>
+              <div class="check-sub">All standard teaching-case unit operations</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon done" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#e6f7ef" stroke="#3aa675" stroke-width="1.2"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#3aa675" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <div>Component-weighted C<sub>p</sub>, Antoine flash, recycle convergence</div>
+              <div class="check-sub">Deterministic tear-edge finder + successive substitution</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon done" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#e6f7ef" stroke="#3aa675" stroke-width="1.2"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#3aa675" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <div>LLM-generated copilot cards on explain / suggest / interpret endpoints</div>
+              <div class="check-sub">Reason, assumption, confidence, recommended action as structured fields</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon done" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#e6f7ef" stroke="#3aa675" stroke-width="1.2"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#3aa675" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <div>OpenAI or Anthropic backend — session key, never stored</div>
+              <div class="check-sub">No API key needed for validation, solving, or surrogate optimization</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon done" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#e6f7ef" stroke="#3aa675" stroke-width="1.2"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#3aa675" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <div>Surrogate sweep → RandomForest train → predict → optimize</div>
+              <div class="check-sub">Feature importance returned with every optimize response</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon done" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#e6f7ef" stroke="#3aa675" stroke-width="1.2"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#3aa675" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+              <div>Run history browser, JSON import/export</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="status-col">
+        <h3>Known scope limits</h3>
+        <div class="check-list">
+
+          <div class="check-item">
+            <svg class="check-icon soon" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#f5f5f7" stroke="#d1d5db" stroke-width="1.2"/>
+              <line x1="9" y1="5.5" x2="9" y2="9.5" stroke="#9ca3af" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="9" cy="12" r="0.8" fill="#9ca3af"/>
+            </svg>
+            <div>
+              <div>No rigorous thermodynamics (DWSIM / Aspen-level)</div>
+              <div class="check-sub">Antoine + ideal-mixture only; results are teaching estimates</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon soon" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#f5f5f7" stroke="#d1d5db" stroke-width="1.2"/>
+              <line x1="9" y1="5.5" x2="9" y2="9.5" stroke="#9ca3af" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="9" cy="12" r="0.8" fill="#9ca3af"/>
+            </svg>
+            <div>
+              <div>No distillation, absorption, or rate-based separation</div>
+              <div class="check-sub">Flash drum is the current phase-split model</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon soon" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#f5f5f7" stroke="#d1d5db" stroke-width="1.2"/>
+              <line x1="9" y1="5.5" x2="9" y2="9.5" stroke="#9ca3af" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="9" cy="12" r="0.8" fill="#9ca3af"/>
+            </svg>
+            <div>
+              <div>105 chemical compounds with built-in property data</div>
+              <div class="check-sub">Unknown components still accepted; results flagged with <span class="mono" style="font-size:11px;">unknown_component_properties</span></div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon soon" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#f5f5f7" stroke="#d1d5db" stroke-width="1.2"/>
+              <line x1="9" y1="5.5" x2="9" y2="9.5" stroke="#9ca3af" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="9" cy="12" r="0.8" fill="#9ca3af"/>
+            </svg>
+            <div>
+              <div>Surrogate trained on random samples, not full Pareto front</div>
+              <div class="check-sub">Single-objective optimize only in current release</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon soon" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#f5f5f7" stroke="#d1d5db" stroke-width="1.2"/>
+              <line x1="9" y1="5.5" x2="9" y2="9.5" stroke="#9ca3af" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="9" cy="12" r="0.8" fill="#9ca3af"/>
+            </svg>
+            <div>
+              <div>Inline stream inspector overlays not yet wired up</div>
+            </div>
+          </div>
+
+          <div class="check-item">
+            <svg class="check-icon soon" width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="8" fill="#f5f5f7" stroke="#d1d5db" stroke-width="1.2"/>
+              <line x1="9" y1="5.5" x2="9" y2="9.5" stroke="#9ca3af" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="9" cy="12" r="0.8" fill="#9ca3af"/>
+            </svg>
+            <div>
+              <div>Render Free Tier — may sleep after inactivity</div>
+              <div class="check-sub">Expect a ~20s cold start; reload if the page times out</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── ROADMAP ──────────────────────────────────────────────────── -->
+<section id="roadmap">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-eyebrow">Next</div>
+      <h2>Roadmap</h2>
+      <p class="section-sub">Planned extensions that strengthen the engineering core and push the optimization further.</p>
+    </div>
+
+    <div class="roadmap-items">
+
+      <div class="roadmap-item">
+        <div>
+          <div class="roadmap-label">Rigorous validation</div>
+          <div class="roadmap-badge planned">Planned</div>
+        </div>
+        <div class="roadmap-content">
+          <h3>DWSIM sidecar for rigorous flash and distillation</h3>
+          <p>
+            Validated cases will be handed off to a DWSIM worker service, results imported back, and the deviation between simplified and rigorous KPIs displayed side-by-side. This turns the surrogate into a meaningful approximation of a real simulation rather than just of a simplified one.
+          </p>
+          <ul>
+            <li>Export/import round-trip to DWSIM</li>
+            <li>Simplified vs. rigorous KPI comparison panel</li>
+            <li>Rigorous dataset generation for surrogate training</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div>
+          <div class="roadmap-label">Stronger process models</div>
+          <div class="roadmap-badge planned">Planned</div>
+        </div>
+        <div class="roadmap-content">
+          <h3>Tighter energy balances and rated-unit operations</h3>
+          <p>
+            Mixer and reactor energy balances will be tightened. Distillation column and absorption unit types are on the scope list, along with continued expansion of the 105-compound property database beyond current species.
+          </p>
+          <ul>
+            <li>Energy balance closure on mixers and reactors</li>
+            <li>Column unit type (shortcut / Fenske–Underwood)</li>
+            <li>Expanded property database</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div>
+          <div class="roadmap-label">Multi-objective optimization</div>
+          <div class="roadmap-badge planned">Planned</div>
+        </div>
+        <div class="roadmap-content">
+          <h3>Pareto exploration across competing KPIs</h3>
+          <p>
+            Current optimization is single-objective. Pareto front generation will let users explore purity vs. utility cost, conversion vs. CO₂ intensity, and other engineering trade-offs with visual exploration of the non-dominated front.
+          </p>
+          <ul>
+            <li>Pareto sweep and front visualization</li>
+            <li>Trade-off interpretation cards from the copilot</li>
+            <li>Per-run SHAP-style local explanations</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="roadmap-item">
+        <div>
+          <div class="roadmap-label">Surrogate backends</div>
+          <div class="roadmap-badge research">Research</div>
+        </div>
+        <div class="roadmap-content">
+          <h3>Gradient-boosted and neural surrogate models</h3>
+          <p>
+            The current RandomForest backend will be extended with XGBoost and a lightweight neural surrogate, allowing comparison between surrogate accuracy and training cost as the run history grows.
+          </p>
+          <ul>
+            <li>XGBoost and MLP backends</li>
+            <li>Surrogate accuracy vs. run-count curves</li>
+            <li>Active learning sampling strategy</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── ARCHITECTURE ─────────────────────────────────────────────── -->
+<section id="architecture">
+  <div class="container">
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:48px;">
+      <div>
+        <div class="section-eyebrow">System design</div>
+        <h2>Four-layer architecture</h2>
+      </div>
+      <div class="stack-row" style="margin-top:0;">
+        <span class="stack-chip active">React 19</span>
+        <span class="stack-chip active">Vite 6</span>
+        <span class="stack-chip active">React Flow</span>
+        <span class="stack-chip active">FastAPI</span>
+        <span class="stack-chip active">scikit-learn</span>
+        <span class="stack-chip active">NumPy / SciPy</span>
+        <span class="stack-chip">DWSIM (planned)</span>
+        <span class="stack-chip">SHAP (planned)</span>
+      </div>
+    </div>
+
+    <div class="arch-layers">
+      <div class="arch-layer">
+        <div class="arch-num">Layer 1</div>
+        <div class="arch-name">Flowsheet UI</div>
+        <div class="arch-items">
+          <span class="arch-item active">Drag-and-drop canvas</span>
+          <span class="arch-item active">Stream connection</span>
+          <span class="arch-item active">Parameter editor</span>
+          <span class="arch-item active">Save / load JSON</span>
+          <span class="arch-item">Stream inspector overlays</span>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Layer 2</div>
+        <div class="arch-name">Engineering Engine</div>
+        <div class="arch-items">
+          <span class="arch-item active">Graph validation</span>
+          <span class="arch-item active">Mass &amp; energy balance</span>
+          <span class="arch-item active">Recycle convergence</span>
+          <span class="arch-item active">Antoine flash</span>
+          <span class="arch-item">DWSIM sidecar</span>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Layer 3</div>
+        <div class="arch-name">AI Copilot</div>
+        <div class="arch-items">
+          <span class="arch-item active">Explain unit roles</span>
+          <span class="arch-item active">Map warnings → actions</span>
+          <span class="arch-item active">Heuristic suggestions</span>
+          <span class="arch-item active">Interpret KPIs</span>
+          <span class="arch-item active">LLM card generation</span>
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Layer 4</div>
+        <div class="arch-name">Optimization</div>
+        <div class="arch-items">
+          <span class="arch-item active">Sweep + run history</span>
+          <span class="arch-item active">RandomForest surrogate</span>
+          <span class="arch-item active">Feature importance</span>
+          <span class="arch-item">Pareto exploration</span>
+          <span class="arch-item">SHAP local explanations</span>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:14px; font-size:12px; color:var(--muted); font-family:var(--mono);">
+      — items in muted text are planned; active items are shipped in v0.3
+    </p>
+  </div>
+</section>
+
+<!-- ── FOOTER ───────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="6" fill="#1d2233"/>
+          <rect x="5" y="10" width="7" height="8" rx="2" fill="#4b9cd3"/>
+          <rect x="16" y="10" width="7" height="8" rx="2" fill="#d62828"/>
+          <line x1="12" y1="14" x2="16" y2="14" stroke="#2a5ae8" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="14" cy="14" r="1.5" fill="#2a5ae8"/>
+        </svg>
+        <span style="font-weight:600; font-size:15px; color:var(--text);">ChemFlow</span>
+        <span class="footer-version">v0.3 demo</span>
+      </div>
+      <p class="footer-note">
+        A hybrid AI-assisted process design platform for chemical engineering education and exploration.
+      </p>
+      <a href="https://chemflow-87xq.onrender.com" target="_blank" rel="noopener" class="footer-link">
+        Open live demo
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 10L10 2M5 2h5v5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<div id="tweaks-root"></div>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accent": "#2a5ae8",
+  "background": "warm",
+  "density": "normal",
+  "gridVisible": true,
+  "showArchitecture": true
+}/*EDITMODE-END*/;
+
+function TweaksApp() {
+  const { tweaks, setTweak } = useTweaks(TWEAK_DEFAULTS);
+  if (!tweaks) return null;
+
+  const ACCENTS = {
+    "#2a5ae8": "Engineering blue",
+    "#0f766e": "Process teal",
+    "#7c3aed": "Research violet",
+    "#b45309": "Amber"
+  };
+
+  const BACKGROUNDS = {
+    warm: { bg: "#f8f7f4", panel: "#ffffff", border: "#e5e1d8" },
+    cool: { bg: "#f4f6f9", panel: "#ffffff", border: "#dde3ec" },
+    neutral: { bg: "#f7f7f9", panel: "#ffffff", border: "#e3e5ea" },
+    dark: { bg: "#12141a", panel: "#1c1f29", border: "#2e3347", text: "#e8eaf0", muted: "#6b7280" },
+  };
+
+  const DENSITIES = {
+    compact: "64px 0 48px",
+    normal: "96px 0 72px",
+    relaxed: "128px 0 96px"
+  };
+
+  React.useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--accent", tweaks.accent);
+    root.style.setProperty("--accent2", tweaks.accent + "cc");
+
+    const bg = BACKGROUNDS[tweaks.background] || BACKGROUNDS.neutral;
+    root.style.setProperty("--bg", bg.bg);
+    root.style.setProperty("--panel", bg.panel);
+    root.style.setProperty("--border", bg.border);
+    if (bg.text) {
+      root.style.setProperty("--text", bg.text);
+      root.style.setProperty("--muted", bg.muted);
+    } else {
+      root.style.setProperty("--text", "#1d2233");
+      root.style.setProperty("--muted", "#6b7280");
+    }
+
+    // grid visibility
+    const gridBg = document.querySelector(".hero-grid-bg");
+    if (gridBg) gridBg.style.opacity = tweaks.gridVisible ? "0.45" : "0";
+
+    // hero padding
+    const hero = document.querySelector("#hero");
+    if (hero) hero.style.padding = DENSITIES[tweaks.density] || DENSITIES.normal;
+
+    // architecture section
+    const arch = document.querySelector("#architecture");
+    if (arch) arch.style.display = tweaks.showArchitecture ? "" : "none";
+  }, [tweaks]);
+
+  return (
+    <TweaksPanel>
+      <TweakSection label="Accent colour">
+        <TweakRadio
+          value={tweaks.accent}
+          options={Object.keys(ACCENTS).map(v => ({ value: v, label: ACCENTS[v] }))}
+          onChange={v => setTweak("accent", v)}
+        />
+      </TweakSection>
+
+      <TweakSection label="Background tone">
+        <TweakRadio
+          value={tweaks.background}
+          options={[
+            { value: "neutral", label: "Neutral" },
+            { value: "warm", label: "Warm" },
+            { value: "cool", label: "Cool" },
+            { value: "dark", label: "Dark" }
+          ]}
+          onChange={v => setTweak("background", v)}
+        />
+      </TweakSection>
+
+      <TweakSection label="Hero density">
+        <TweakRadio
+          value={tweaks.density}
+          options={[
+            { value: "compact", label: "Compact" },
+            { value: "normal", label: "Normal" },
+            { value: "relaxed", label: "Relaxed" }
+          ]}
+          onChange={v => setTweak("density", v)}
+        />
+      </TweakSection>
+
+      <TweakSection label="Canvas grid">
+        <TweakToggle
+          label="Show background grid in hero"
+          value={tweaks.gridVisible}
+          onChange={v => setTweak("gridVisible", v)}
+        />
+      </TweakSection>
+
+      <TweakSection label="Sections">
+        <TweakToggle
+          label="Show architecture layer diagram"
+          value={tweaks.showArchitecture}
+          onChange={v => setTweak("showArchitecture", v)}
+        />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+const tweaksRoot = document.getElementById("tweaks-root");
+ReactDOM.createRoot(tweaksRoot).render(<TweaksApp />);
+</script>
+
+<script>
+  // smooth fade-in on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.08 });
+
+  document.querySelectorAll('section').forEach(s => {
+    s.style.opacity = '0';
+    s.style.transform = 'translateY(18px)';
+    s.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    observer.observe(s);
+  });
+
+  // hero is always visible
+  document.querySelector('#hero').style.opacity = '1';
+  document.querySelector('#hero').style.transform = 'none';
+</script>
+
+</body>
+</html>
